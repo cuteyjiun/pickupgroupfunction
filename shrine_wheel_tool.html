@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神社幸運轉盤 (Shrine Wheel)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #fdfbf7 0%, #ebf1f5 100%);
+        }
+        .shrine-red {
+            background-color: #bc2828;
+        }
+        .shrine-red-hover:hover {
+            background-color: #9b2020;
+        }
+        .shrine-gold {
+            color: #d4af37;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-4 md:p-8">
+
+    <!-- 頂部標題區 -->
+    <header class="text-center my-4">
+        <div class="inline-block px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold tracking-wider uppercase mb-2">
+            Shrine Omikuji & Wheel
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-wide">⛩️ 神社開運幸運轉盤</h1>
+        <p class="text-slate-500 text-sm mt-1">轉動幸運轉盤，抽取今日神籤，為您指引好運！</p>
+    </header>
+
+    <!-- 主要操作區 -->
+    <main class="w-full max-w-xl bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-6 md:p-8 flex flex-col items-center border border-slate-100">
+
+        <!-- 轉盤顯示區 -->
+        <div class="relative w-72 h-72 md:w-80 md:h-80 flex items-center justify-center my-4">
+            <!-- 轉盤指針 -->
+            <div class="absolute -top-4 z-20 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[24px] border-t-red-600 drop-shadow-md"></div>
+            
+            <!-- 轉盤圓盤本体 -->
+            <div id="wheel" class="w-full h-full rounded-full border-8 border-amber-600 shadow-inner relative overflow-hidden transition-transform duration-[4000ms] cubic-bezier(0.15, 0.9, 0.2, 1)" style="transform: rotate(0deg);">
+                <!-- 扇形區塊將由 JavaScript 動態生成 -->
+            </div>
+
+            <!-- 中心裝飾鈕 -->
+            <div class="absolute z-10 w-16 h-16 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 border-4 border-white shadow-md flex items-center justify-center text-white font-bold text-xl">
+                ⛩️
+            </div>
+        </div>
+
+        <!-- 按鈕控制區 -->
+        <div class="flex flex-wrap gap-3 justify-center w-full mt-6">
+            <button id="spinBtn" onclick="spinWheel()" class="flex-1 min-w-[140px] shrine-red shrine-red-hover text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2 text-lg">
+                <span>🎯 開始轉動</span>
+            </button>
+            <button onclick="openSettings()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-3 px-5 rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                <span>⚙️ 編輯選項</span>
+            </button>
+        </div>
+
+        <!-- 結果顯示區 -->
+        <div id="resultBox" class="mt-8 w-full bg-amber-50 border border-amber-200 rounded-xl p-4 text-center hidden animate-fade-in">
+            <h3 class="text-xs font-bold text-amber-800 uppercase tracking-widest mb-1">抽籤結果 / Result</h3>
+            <p id="resultText" class="text-2xl font-bold text-red-700 tracking-wide"></p>
+            <p id="resultDesc" class="text-slate-600 text-sm mt-2"></p>
+        </div>
+
+    </main>
+
+    <!-- 選項設定 Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">編輯轉盤選項</h3>
+                <button onclick="closeSettings()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+            </div>
+            <p class="text-xs text-slate-500 mb-3">請輸入轉盤的項目，每行輸入一個選項：</p>
+            <textarea id="optionsInput" rows="6" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"></textarea>
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="closeSettings()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg">取消</button>
+                <button onclick="saveOptions()" class="px-4 py-2 shrine-red shrine-red-hover text-white text-sm font-medium rounded-lg">儲存並更新</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頁尾 -->
+    <footer class="mt-8 text-center text-slate-400 text-xs">
+        <p>Shrine Wheel Tool &copy; 2026 |基於網頁前端獨立運行</p>
+    </footer>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        // 預設轉盤項目
+        let options = [
+            { name: "大吉", desc: "萬事如意，心想事成！今日運勢達到頂峰。" },
+            { name: "中吉", desc: "吉星高照，穩步前進必有收穫。" },
+            { name: "小吉", desc: "平淡中見真章，保持耐心會迎來好消息。" },
+            { name: "吉", desc: "運勢平穩，適合按部就班執行計畫。" },
+            { name: "末吉", desc: "微小的轉機正在醞釀，謹慎行事即可。" },
+            { name: "凶", desc: "多加留意身邊細節，低調沈潛可避開風浪。" }
+        ];
+
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        const wheel = document.getElementById('wheel');
+        const spinBtn = document.getElementById('spinBtn');
+        const resultBox = document.getElementById('resultBox');
+        const resultText = document.getElementById('resultText');
+        const resultDesc = document.getElementById('resultDesc');
+        const settingsModal = document.getElementById('settingsModal');
+        const optionsInput = document.getElementById('optionsInput');
+
+        // 初始化繪製轉盤
+        function drawWheel() {
+            wheel.innerHTML = '';
+            const sliceAngle = 360 / options.length;
+            const colors = ['#dc2626', '#d97706', '#16a34a', '#2563eb', '#9333ea', '#db2777', '#0891b2', '#4f46e5'];
+
+            options.forEach((opt, index) => {
+                const angle = index * sliceAngle;
+                
+                // 建立扇形背景利用 conic-gradient 或 HTML/CSS 拼湊，這裡直接用SVG/Conic Gradient最為平滑
+            });
+
+            // 採用 CSS Conic Gradient 簡化樣式與繪製
+            let gradientStops = [];
+            options.forEach((opt, index) => {
+                const start = (index / options.length) * 100;
+                const end = ((index + 1) / options.length) * 100;
+                const color = colors[index % colors.length];
+                gradientStops.push(`${color} ${start}% ${end}%`);
+            });
+            wheel.style.background = `conic-gradient(${gradientStops.join(', ')})`;
+
+            // 加上文字標籤
+            options.forEach((opt, index) => {
+                const angle = index * sliceAngle + sliceAngle / 2;
+                const radian = (angle - 90) * (Math.PI / 180);
+                // 計算圓周上放置文字的位置 (約半徑的 65%)
+                const radius = 38; // 百分比
+                const x = 50 + radius * Math.cos(radian);
+                const y = 50 + radius * Math.sin(radian);
+
+                const label = document.createElement('div');
+                label.className = 'absolute text-white font-bold text-xs md:text-sm drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] pointer-events-none whitespace-nowrap';
+                label.style.left = `${x}%`;
+                label.style.top = `${y}%`;
+                label.style.transform = `translate(-50%, -50%) rotate(${angle + 90}deg)`;
+                label.innerText = opt.name;
+                wheel.appendChild(label);
+            });
+        }
+
+        // 轉動轉盤邏輯
+        function spinWheel() {
+            if (isSpinning) return;
+            isSpinning = true;
+            spinBtn.disabled = true;
+            spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            resultBox.classList.add('hidden');
+
+            const totalSlices = options.length;
+            const sliceDegree = 360 / totalSlices;
+
+            // 隨機決定中獎索引
+            const winningIndex = Math.floor(Math.random() * totalSlices);
+            
+            // 轉動圈數 (5 ~ 8 圈) + 偏移角度
+            const extraRounds = 360 * (5 + Math.floor(Math.random() * 3));
+            
+            // 確保指針（上方 0 度/360度）指向中獎區塊中央
+            // 由於指針在上方，指針指著對應角度需要反向計算
+            const targetDegree = extraRounds + (360 - (winningIndex * sliceDegree + sliceDegree / 2));
+
+            currentRotation += targetDegree - (currentRotation % 360);
+            wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+            // 等待動畫結束 (4秒)
+            setTimeout(() => {
+                isSpinning = false;
+                spinBtn.disabled = false;
+                spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                // 顯示結果
+                const winner = options[winningIndex];
+                resultText.innerText = winner.name;
+                resultDesc.innerText = winner.desc || "祝您今日事事順心！";
+                resultBox.classList.remove('hidden');
+            }, 4000);
+        }
+
+        // 開啟設定 Modal
+        function openSettings() {
+            optionsInput.value = options.map(o => `${o.name}|${o.desc || ''}`).join('\n');
+            settingsModal.classList.remove('hidden');
+        }
+
+        // 關閉設定 Modal
+        function closeSettings() {
+            settingsModal.classList.add('hidden');
+        }
+
+        // 儲存設定選項
+        function saveOptions() {
+            const rawText = optionsInput.value.trim();
+            if (!rawText) return;
+
+            const lines = rawText.split('\n');
+            const newOptions = [];
+
+            lines.forEach(line => {
+                const parts = line.split('|');
+                const name = parts[0].trim();
+                const desc = parts[1] ? parts[1].trim() : "神明保佑，平安喜樂！";
+                if (name) {
+                    newOptions.push({ name, desc });
+                }
+            });
+
+            if (newOptions.length > 1) {
+                options = newOptions;
+                drawWheel();
+                closeSettings();
+            } else {
+                alert("請至少輸入兩個有效的選項！");
+            }
+        }
+
+        // 頁面載入初始化
+        window.onload = () => {
+            drawWheel();
+        };
+    </script>
+</body>
+</html>
